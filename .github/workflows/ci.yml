@@ -1,0 +1,55 @@
+name: CI
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [airport-service, itinerary-service, api-gateway, notification-function, report-function]
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            shared/pyproject.toml
+            requirements-dev.txt
+            services/${{ matrix.service }}/requirements.txt
+      - run: pip install -e shared -r requirements-dev.txt -r services/${{ matrix.service }}/requirements.txt
+      - run: python scripts/check_contracts.py
+      - run: ruff check services/${{ matrix.service }} shared scripts
+      - run: ruff format --check services/${{ matrix.service }} shared scripts
+      - name: Unit and integration tests
+        working-directory: services/${{ matrix.service }}
+        run: python -m pytest --cov=app --cov-report=term-missing --cov-report=xml -q
+      - name: Exercise both database migrations
+        if: matrix.service == 'itinerary-service'
+        run: python scripts/check_migrations.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.service }}-${{ matrix.python }}
+          path: services/${{ matrix.service }}/coverage.xml
+  infrastructure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: node --check frontend/app.js
+      - run: python scripts/init_env.py
+      - run: docker compose --env-file .env -f infra/docker-compose.yml config --quiet
+      - run: pip install httpx python-dotenv
+      - run: docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.test.yml up --build -d
+      - run: python scripts/smoke.py
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose --env-file .env -f infra/docker-compose.yml logs --tail 100
+      - name: Stop test stack
+        if: always()
+        run: docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.test.yml down

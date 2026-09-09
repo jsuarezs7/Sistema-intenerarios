@@ -1,0 +1,34 @@
+name: Deploy Render
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: render-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger all configured Render deploy hooks
+        env:
+          AIRPORT: ${{ secrets.RENDER_DEPLOY_HOOK_AIRPORT }}
+          ITINERARY: ${{ secrets.RENDER_DEPLOY_HOOK_ITINERARY }}
+          OUTBOX: ${{ secrets.RENDER_DEPLOY_HOOK_OUTBOX }}
+          GATEWAY: ${{ secrets.RENDER_DEPLOY_HOOK_GATEWAY }}
+          NOTIFICATION: ${{ secrets.RENDER_DEPLOY_HOOK_NOTIFICATION }}
+          REPORT: ${{ secrets.RENDER_DEPLOY_HOOK_REPORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in AIRPORT ITINERARY OUTBOX GATEWAY NOTIFICATION REPORT; do
+            test -n "${!name}" || { echo "Missing deploy hook: $name"; exit 1; }
+          done
+          for name in AIRPORT ITINERARY OUTBOX GATEWAY NOTIFICATION REPORT; do
+            curl --fail --silent --show-error --retry 3 --max-time 30 --output /dev/null -X POST "${!name}"
+            echo "Deployment requested: $name"
+          done

@@ -1,0 +1,12 @@
+# Deterministic test provider. Never use this override for a real deployment.
+services:
+  airport-fixture:
+    image: python:3.12-alpine
+    command: ["python", "-m", "http.server", "8080", "--directory", "/fixtures"]
+    volumes: ["../tests/fixtures:/fixtures:ro"]
+  airport-service:
+    environment:
+      AIRPORT_API_URL: http://airport-fixture:8080/Airport
+      REDIS_URL: redis://redis:6379/2
+    depends_on:
+      airport-fixture: {condition: service_started}

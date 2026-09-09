@@ -1,0 +1,128 @@
+asyncapi: 2.6.0
+info:
+  title: Sistema de Itinerarios - Events
+  version: 1.0.0
+  description: Delivery at least once; consumers deduplicate by event_id.
+defaultContentType: application/json
+servers:
+  local:
+    url: rabbitmq:5672
+    protocol: amqp
+    description: Credentials supplied by environment; internal network only.
+channels:
+  itinerary.created.v1:
+    description: Durable topic exchange itinerary.events; notification queue notifications.itinerary-created.v1;
+      malformed messages go to notifications.dead.
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: itinerary.events
+          type: topic
+          durable: true
+          autoDelete: false
+        bindingVersion: 0.3.0
+    publish:
+      operationId: publishItineraryCreated
+      summary: Outbox worker publishes only after aggregate commit.
+      message:
+        $ref: '#/components/messages/ItineraryCreatedEvent'
+    subscribe:
+      operationId: sendNotification
+      summary: Commit notification before ACK. Requeue storage failures; reject malformed
+        events to DLQ.
+      message:
+        $ref: '#/components/messages/ItineraryCreatedEvent'
+components:
+  messages:
+    ItineraryCreatedEvent:
+      name: ItineraryCreatedEvent
+      title: Itinerary created (v1)
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          traceparent:
+            type: string
+          tracestate:
+            type: string
+          correlation_id:
+            type: string
+      correlationId:
+        location: $message.header#/correlation_id
+      payload:
+        $ref: '#/components/schemas/ItineraryCreatedEvent'
+      examples:
+      - name: Trip in Colombia
+        payload:
+          event_id: a583ad2d-68e6-40c8-92ac-a5f70f852624
+          event_type: ItineraryCreatedEvent
+          schema_version: 1
+          occurred_at: '2027-01-01T12:00:00Z'
+          itinerary_id: c68b1ab4-b7b8-48de-bf90-e4a4cab45ac2
+          user_id: student
+          departure_airport_id: 1
+          arrival_airport_id: 2
+          departure_date: '2027-01-15'
+          duration_days: 4
+  schemas:
+    ItineraryCreatedEvent:
+      additionalProperties: false
+      description: Versioned wire contract; domain entities remain framework-independent.
+      properties:
+        event_id:
+          format: uuid
+          title: Event Id
+          type: string
+        event_type:
+          default: ItineraryCreatedEvent
+          title: Event Type
+          type: string
+          enum:
+          - ItineraryCreatedEvent
+        schema_version:
+          default: 1
+          title: Schema Version
+          type: integer
+          enum:
+          - 1
+        occurred_at:
+          format: date-time
+          title: Occurred At
+          type: string
+        itinerary_id:
+          format: uuid
+          title: Itinerary Id
+          type: string
+        user_id:
+          minLength: 1
+          title: User Id
+          type: string
+        departure_airport_id:
+          exclusiveMinimum: 0
+          title: Departure Airport Id
+          type: integer
+        arrival_airport_id:
+          exclusiveMinimum: 0
+          title: Arrival Airport Id
+          type: integer
+        departure_date:
+          format: date
+          title: Departure Date
+          type: string
+        duration_days:
+          maximum: 365
+          minimum: 1
+          title: Duration Days
+          type: integer
+      required:
+      - event_id
+      - occurred_at
+      - itinerary_id
+      - user_id
+      - departure_airport_id
+      - arrival_airport_id
+      - departure_date
+      - duration_days
+      title: ItineraryCreatedEvent
+      type: object

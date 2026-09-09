@@ -1,0 +1,154 @@
+name: sistema-itinerarios
+
+x-auth-env: &auth-env
+  JWT_SECRET: ${JWT_SECRET:?Run python scripts/init_env.py}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+x-db-env: &db-env
+  <<: *auth-env
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-itinerary}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-itineraries}
+  AIRPORT_SERVICE_URL: http://airport-service:8000
+
+x-notification-env: &notification-env
+  NOTIFICATION_DATABASE_URL: postgresql+asyncpg://notifications:${NOTIFICATION_POSTGRES_PASSWORD:?Set NOTIFICATION_POSTGRES_PASSWORD}@notification-db:5432/notifications
+  RABBITMQ_URL: amqp://${RABBITMQ_USER:-itinerary}:${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}@rabbitmq:5672/
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-itinerary}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-itineraries}
+    volumes: [itinerary-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  notification-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: notifications
+      POSTGRES_PASSWORD: ${NOTIFICATION_POSTGRES_PASSWORD:?Set NOTIFICATION_POSTGRES_PASSWORD}
+      POSTGRES_DB: notifications
+    volumes: [notification-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lru"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4.0-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-itinerary}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+    volumes: [rabbitmq-data:/var/lib/rabbitmq]
+    ports: ["127.0.0.1:15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:2.1.0
+    ports: ["127.0.0.1:16686:16686"]
+    restart: unless-stopped
+
+  airport-service:
+    build: {context: .., dockerfile: services/airport-service/Dockerfile}
+    environment:
+      <<: *auth-env
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis: {condition: service_healthy}
+    restart: unless-stopped
+
+  itinerary-migrate:
+    build: {context: .., dockerfile: services/itinerary-service/Dockerfile}
+    command: ["alembic", "upgrade", "head"]
+    environment: *db-env
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  itinerary-service:
+    build: {context: .., dockerfile: services/itinerary-service/Dockerfile}
+    environment: *db-env
+    depends_on:
+      itinerary-migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+
+  outbox-worker:
+    build: {context: .., dockerfile: services/itinerary-service/Dockerfile}
+    command: ["python", "-m", "app.infrastructure.outbox_worker"]
+    environment:
+      <<: *db-env
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-itinerary}:${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}@rabbitmq:5672/
+    depends_on:
+      itinerary-migrate: {condition: service_completed_successfully}
+      rabbitmq: {condition: service_healthy}
+    restart: unless-stopped
+
+  notification-migrate:
+    build: {context: .., dockerfile: services/notification-function/Dockerfile}
+    command: ["alembic", "upgrade", "head"]
+    environment: *notification-env
+    depends_on:
+      notification-db: {condition: service_healthy}
+
+  notification-function:
+    build: {context: .., dockerfile: services/notification-function/Dockerfile}
+    environment: *notification-env
+    depends_on:
+      notification-migrate: {condition: service_completed_successfully}
+      rabbitmq: {condition: service_healthy}
+    restart: unless-stopped
+
+  report-function:
+    build: {context: .., dockerfile: services/report-function/Dockerfile}
+    environment:
+      <<: *auth-env
+      ITINERARY_SERVICE_URL: http://itinerary-service:8000
+    restart: unless-stopped
+
+  api-gateway:
+    build: {context: .., dockerfile: services/api-gateway/Dockerfile}
+    environment:
+      <<: *auth-env
+      DEMO_USERNAME: ${DEMO_USERNAME:-student}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?Set DEMO_PASSWORD}
+      REDIS_URL: redis://redis:6379/1
+      AIRPORT_SERVICE_URL: http://airport-service:8000
+      ITINERARY_SERVICE_URL: http://itinerary-service:8000
+      REPORT_SERVICE_URL: http://report-function:8000
+    ports: ["127.0.0.1:${GATEWAY_PORT:-8000}:8000"]
+    depends_on:
+      redis: {condition: service_healthy}
+      airport-service: {condition: service_started}
+      itinerary-service: {condition: service_started}
+      report-function: {condition: service_started}
+    restart: unless-stopped
+
+volumes:
+  itinerary-data:
+  notification-data:
+  redis-data:
+  rabbitmq-data:

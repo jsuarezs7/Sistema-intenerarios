@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#173e37">
+  <title>Ruta · Itinerarios personales</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/styles.css" rel="stylesheet">
+  <script defer src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Ruta, inicio"><span class="brand-icon">↗</span> ruta<span class="brand-dot">.</span></a>
+    <span class="header-caption">Tu próximo destino empieza aquí</span>
+    <div id="account" hidden><span id="username"></span><button id="logout" class="btn btn-sm btn-outline-secondary ms-3">Salir</button></div>
+  </header>
+  <main class="container-xl py-4 py-lg-5">
+    <div id="notice" class="alert" role="status" aria-live="polite" hidden></div>
+    <section id="login-view" class="welcome row g-5 align-items-center">
+      <div class="col-lg-7">
+        <span class="eyebrow">COLOMBIA, A TU RITMO</span>
+        <h1>Menos pendientes.<br>Más <span>destinos.</span></h1>
+        <p class="intro">Encuentra tu punto de partida, conecta ciudades y reúne tus planes de viaje en un solo lugar.</p>
+        <div class="journey" aria-hidden="true"><span>BOG<br><small>Bogotá</small></span><i>· · · · · ↗ · · · · ·</i><span>CTG<br><small>Cartagena</small></span></div>
+        <div class="welcome-features"><span>01 &nbsp; Explora el mapa</span><span>02 &nbsp; Diseña tu ruta</span><span>03 &nbsp; Organiza tus días</span></div>
+      </div>
+      <div class="col-lg-5">
+        <div class="panel login-panel">
+          <span class="eyebrow">BIENVENIDO A BORDO</span>
+          <h2>Haz espacio para viajar.</h2>
+          <p class="text-secondary">Ingresa para empezar a planear.</p>
+          <form id="login-form">
+            <label for="login-user" class="form-label">Usuario</label>
+            <input id="login-user" class="form-control mb-3" autocomplete="username" required maxlength="128">
+            <label for="login-password" class="form-label">Contraseña</label>
+            <input id="login-password" class="form-control mb-4" type="password" autocomplete="current-password" required maxlength="256">
+            <button class="btn btn-primary w-100" type="submit">Entrar a mis viajes <span aria-hidden="true">↗</span></button>
+          </form>
+          <p class="small text-secondary mt-4 mb-0">Usa las credenciales que te entregó el administrador.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="workspace" hidden>
+      <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
+        <div><span class="eyebrow">UN PAÍS POR DESCUBRIR</span><h1 class="dashboard-title">Tu siguiente aventura.</h1><p class="text-secondary mb-0">Cada gran viaje empieza con una buena ruta.</p></div>
+        <button class="btn btn-primary" id="new-itinerary">＋ Nuevo itinerario</button>
+      </div>
+      <nav class="view-nav mb-4" aria-label="Secciones">
+        <button data-view="explore" aria-current="page">Explorar aeropuertos</button>
+        <button data-view="trips">Mis itinerarios <span id="trip-count" class="count">0</span></button>
+        <button data-view="reports">Mi resumen</button>
+      </nav>
+
+      <section id="explore-view">
+        <div class="panel overflow-hidden">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-4 border-bottom">
+            <div><h2 class="h5 mb-1">Elige dónde empieza tu viaje</h2><p id="map-caption" class="small text-secondary mb-0">Aeropuertos de Colombia</p></div>
+            <button class="btn btn-sm btn-outline-secondary" id="reload-airports">Actualizar aeropuertos</button>
+          </div>
+          <div id="map" role="img" aria-label="Mapa interactivo de aeropuertos colombianos"></div>
+          <p id="map-status" class="small text-secondary px-4 pb-3 mb-0" role="status"></p>
+        </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 mb-3 gap-2">
+          <h2 class="h5 mb-0">Encuentra tu destino</h2>
+          <input id="airport-search" type="search" class="form-control search-input" placeholder="Buscar ciudad, aeropuerto o código…" aria-label="Buscar aeropuerto">
+        </div>
+        <div id="airport-list" class="row g-3"></div>
+        <button id="more-airports" class="btn btn-outline-secondary mt-3" hidden>Mostrar más aeropuertos</button>
+      </section>
+
+      <section id="trips-view" hidden>
+        <div id="trips-empty" class="panel empty-state"><span aria-hidden="true">↗</span><h2 class="h4">Tu próximo viaje está por escribirse</h2><p class="text-secondary">Crea un itinerario y empieza a darle forma.</p><button class="btn btn-primary" id="first-itinerary">Planear mi primer viaje</button></div>
+        <div id="trips-list" class="row g-3"></div>
+      </section>
+
+      <section id="reports-view" hidden>
+        <div class="d-flex align-items-center justify-content-between mb-4"><h2 class="h4 mb-0">Tus viajes, en perspectiva</h2><button class="btn btn-outline-secondary" id="refresh-report">Generar reporte</button></div>
+        <p id="report-caption" class="text-secondary">Genera un reporte para consultar las métricas de tus itinerarios.</p>
+        <div id="report-metrics" class="row g-3"></div>
+        <div id="report-routes" class="panel p-4 mt-4" hidden></div>
+      </section>
+    </section>
+  </main>
+  <footer class="container-xl py-4 small text-secondary d-flex flex-wrap justify-content-between gap-2"><span>ruta. · Sistema de Itinerarios Personales</span><span>Hecho para descubrir Colombia</span></footer>
+
+  <dialog id="itinerary-dialog" class="panel">
+    <div class="d-flex align-items-center justify-content-between mb-4"><h2 id="form-title" class="h4 mb-0">Un nuevo destino</h2><button id="close-dialog" class="btn-close" aria-label="Cerrar formulario"></button></div>
+    <p id="form-error" class="alert alert-danger" role="alert" hidden></p>
+    <form id="itinerary-form">
+      <input id="itinerary-id" type="hidden">
+      <label for="departure" class="form-label">Aeropuerto de salida</label><select id="departure" class="form-select mb-3" required></select>
+      <label for="arrival" class="form-label">Aeropuerto de llegada</label><select id="arrival" class="form-select mb-3" required></select>
+      <div class="row g-3 mb-4">
+        <div class="col-sm-7"><label for="departure-date" class="form-label">Fecha de salida</label><input id="departure-date" type="date" class="form-control" required></div>
+        <div class="col-sm-5"><label for="duration" class="form-label">Duración (días)</label><input id="duration" type="number" min="1" max="365" step="1" value="1" class="form-control" required></div>
+      </div>
+      <button class="btn btn-primary w-100" type="submit">Guardar itinerario</button>
+    </form>
+  </dialog>
+  <dialog id="delete-dialog" class="panel">
+    <h2 class="h4">¿Eliminar este itinerario?</h2><p class="text-secondary">Se quitará de tus planes guardados.</p>
+    <div class="d-flex justify-content-end gap-2"><button id="cancel-delete" class="btn btn-outline-secondary">Conservar</button><button id="confirm-delete" class="btn btn-danger">Eliminar</button></div>
+  </dialog>
+</body>
+</html>

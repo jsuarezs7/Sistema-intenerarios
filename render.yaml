@@ -1,0 +1,157 @@
+services:
+- name: airport-service
+  type: pserv
+  runtime: docker
+  branch: main
+  dockerContext: .
+  dockerfilePath: ./services/airport-service/Dockerfile
+  autoDeployTrigger: 'off'
+  envVars:
+  - fromGroup: itinerary-auth
+  - key: OTEL_EXPORTER_OTLP_ENDPOINT
+    sync: false
+  - key: PORT
+    value: '8000'
+  - key: REDIS_URL
+    fromService:
+      name: itinerary-cache
+      type: keyvalue
+      property: connectionString
+- name: itinerary-service
+  type: pserv
+  runtime: docker
+  branch: main
+  dockerContext: .
+  dockerfilePath: ./services/itinerary-service/Dockerfile
+  autoDeployTrigger: 'off'
+  envVars:
+  - fromGroup: itinerary-auth
+  - key: OTEL_EXPORTER_OTLP_ENDPOINT
+    sync: false
+  - key: PORT
+    value: '8000'
+  - key: DATABASE_URL
+    fromDatabase:
+      name: itinerary-db
+      property: connectionString
+  - key: AIRPORT_SERVICE_URL
+    fromService:
+      name: airport-service
+      type: pserv
+      property: hostport
+  preDeployCommand: alembic upgrade head
+- name: outbox-worker
+  type: worker
+  runtime: docker
+  branch: main
+  dockerContext: .
+  dockerfilePath: ./services/itinerary-service/Dockerfile
+  autoDeployTrigger: 'off'
+  envVars:
+  - fromGroup: itinerary-auth
+  - key: OTEL_EXPORTER_OTLP_ENDPOINT
+    sync: false
+  - key: DATABASE_URL
+    fromDatabase:
+      name: itinerary-db
+      property: connectionString
+  - key: AIRPORT_SERVICE_URL
+    fromService:
+      name: airport-service
+      type: pserv
+      property: hostport
+  - key: RABBITMQ_URL
+    sync: false
+  dockerCommand: python -m app.infrastructure.outbox_worker
+- name: notification-function
+  type: worker
+  runtime: docker
+  branch: main
+  dockerContext: .
+  dockerfilePath: ./services/notification-function/Dockerfile
+  autoDeployTrigger: 'off'
+  envVars:
+  - fromGroup: itinerary-auth
+  - key: OTEL_EXPORTER_OTLP_ENDPOINT
+    sync: false
+  - key: RABBITMQ_URL
+    sync: false
+  - key: NOTIFICATION_DATABASE_URL
+    fromDatabase:
+      name: notification-db
+      property: connectionString
+  preDeployCommand: alembic upgrade head
+- name: report-function
+  type: pserv
+  runtime: docker
+  branch: main
+  dockerContext: .
+  dockerfilePath: ./services/report-function/Dockerfile
+  autoDeployTrigger: 'off'
+  envVars:
+  - fromGroup: itinerary-auth
+  - key: OTEL_EXPORTER_OTLP_ENDPOINT
+    sync: false
+  - key: PORT
+    value: '8000'
+  - key: ITINERARY_SERVICE_URL
+    fromService:
+      name: itinerary-service
+      type: pserv
+      property: hostport
+- name: api-gateway
+  type: web
+  runtime: docker
+  branch: main
+  dockerContext: .
+  dockerfilePath: ./services/api-gateway/Dockerfile
+  autoDeployTrigger: 'off'
+  envVars:
+  - fromGroup: itinerary-auth
+  - key: OTEL_EXPORTER_OTLP_ENDPOINT
+    sync: false
+  - key: PORT
+    value: '8000'
+  - key: REDIS_URL
+    fromService:
+      name: itinerary-cache
+      type: keyvalue
+      property: connectionString
+  - key: AIRPORT_SERVICE_URL
+    fromService:
+      name: airport-service
+      type: pserv
+      property: hostport
+  - key: ITINERARY_SERVICE_URL
+    fromService:
+      name: itinerary-service
+      type: pserv
+      property: hostport
+  - key: REPORT_SERVICE_URL
+    fromService:
+      name: report-function
+      type: pserv
+      property: hostport
+  - key: DEMO_USERNAME
+    sync: false
+  - key: DEMO_PASSWORD
+    sync: false
+  healthCheckPath: /health
+- name: itinerary-cache
+  type: keyvalue
+  ipAllowList: []
+  maxmemoryPolicy: volatile-lru
+databases:
+- name: itinerary-db
+  databaseName: itineraries
+  postgresMajorVersion: '17'
+  ipAllowList: []
+- name: notification-db
+  databaseName: notifications
+  postgresMajorVersion: '17'
+  ipAllowList: []
+envVarGroups:
+- name: itinerary-auth
+  envVars:
+  - key: JWT_SECRET
+    generateValue: true

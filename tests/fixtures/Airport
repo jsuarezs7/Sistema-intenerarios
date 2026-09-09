@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "name": "El Dorado (test)",
+    "iataCode": "BOG",
+    "city": {
+      "name": "Bogotá"
+    },
+    "latitude": -74.1469,
+    "longitude": 4.7016
+  },
+  {
+    "id": 2,
+    "name": "Rafael Núñez (test)",
+    "iataCode": "CTG",
+    "city": {
+      "name": "Cartagena"
+    },
+    "latitude": 10.4424,
+    "longitude": -75.513
+  }
+]
