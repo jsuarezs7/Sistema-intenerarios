@@ -18,6 +18,7 @@
   </header>
   <main class="container-xl py-4 py-lg-5">
     <div id="notice" class="alert" role="status" aria-live="polite" hidden></div>
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
     <section id="login-view" class="welcome row g-5 align-items-center">
       <div class="col-lg-7">
         <span class="eyebrow">COLOMBIA, A TU RITMO</span>
@@ -55,20 +56,46 @@
       </nav>
 
       <section id="explore-view">
-        <div class="panel overflow-hidden">
-          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-4 border-bottom">
-            <div><h2 class="h5 mb-1">Elige dónde empieza tu viaje</h2><p id="map-caption" class="small text-secondary mb-0">Aeropuertos de Colombia</p></div>
-            <button class="btn btn-sm btn-outline-secondary" id="reload-airports">Actualizar aeropuertos</button>
+        <div class="row g-4 align-items-start">
+          <div class="col-lg-8">
+            <div class="panel overflow-hidden">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-4 border-bottom">
+                <div><h2 class="h5 mb-1">Elige dónde empieza tu viaje</h2><p id="map-caption" class="small text-secondary mb-0">Aeropuertos de Colombia</p></div>
+                <button class="btn btn-sm btn-outline-secondary" id="reload-airports">Actualizar aeropuertos</button>
+              </div>
+              <div id="map" role="img" aria-label="Mapa interactivo de aeropuertos colombianos"></div>
+              <p id="map-status" class="small text-secondary px-4 pb-3 mb-0" role="status"></p>
+            </div>
+            <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 mb-3 gap-2">
+              <h2 class="h5 mb-0">Encuentra tu destino</h2>
+              <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+                <select id="airport-filter-type" class="form-select search-filter" aria-label="Filtrar aeropuertos por campo">
+                  <option value="all">Todo</option>
+                  <option value="city">Ciudad</option>
+                  <option value="country">País</option>
+                  <option value="name">Aeropuerto</option>
+                  <option value="iata_code">Código IATA</option>
+                </select>
+                <input id="airport-search" type="search" class="form-control search-input" placeholder="Buscar ciudad, país, aeropuerto o código…" aria-label="Buscar aeropuerto">
+              </div>
+            </div>
+            <div id="airport-list" class="row g-3"></div>
+            <button id="more-airports" class="btn btn-outline-secondary mt-3" hidden>Mostrar más aeropuertos</button>
           </div>
-          <div id="map" role="img" aria-label="Mapa interactivo de aeropuertos colombianos"></div>
-          <p id="map-status" class="small text-secondary px-4 pb-3 mb-0" role="status"></p>
+          <aside class="col-lg-4">
+            <div id="airport-detail" class="panel airport-detail" aria-live="polite">
+              <span class="eyebrow mb-3">DETALLE DEL AEROPUERTO</span>
+              <h3 id="airport-detail-name" class="h4">Selecciona un aeropuerto</h3>
+              <p id="airport-detail-city" class="text-secondary mb-3">Elige uno de la lista para ver información del destino.</p>
+              <dl class="airport-metadata">
+                <div><dt>Código IATA</dt><dd id="airport-detail-iata">—</dd></div>
+                <div><dt>País</dt><dd id="airport-detail-country">—</dd></div>
+                <div><dt>Ciudad</dt><dd id="airport-detail-city2">—</dd></div>
+                <div><dt>Coordenadas</dt><dd id="airport-detail-coords">—</dd></div>
+              </dl>
+            </div>
+          </aside>
         </div>
-        <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 mb-3 gap-2">
-          <h2 class="h5 mb-0">Encuentra tu destino</h2>
-          <input id="airport-search" type="search" class="form-control search-input" placeholder="Buscar ciudad, aeropuerto o código…" aria-label="Buscar aeropuerto">
-        </div>
-        <div id="airport-list" class="row g-3"></div>
-        <button id="more-airports" class="btn btn-outline-secondary mt-3" hidden>Mostrar más aeropuertos</button>
       </section>
 
       <section id="trips-view" hidden>

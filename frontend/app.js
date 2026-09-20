@@ -8,6 +8,18 @@ function notice(message, error = false) {
   $("notice").className = "alert " + (error ? "alert-danger" : "alert-success");
   $("notice").hidden = false;
 }
+function showToast(message, type = "success") {
+  const container = $("toast-container");
+  const toast = document.createElement("div");
+  toast.className = "toast toast-" + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("visible"));
+  setTimeout(() => {
+    toast.classList.remove("visible");
+    setTimeout(() => toast.remove(), 220);
+  }, 2900);
+}
 function errorText(body) {
   if (Array.isArray(body.detail)) return body.detail.map(e => e.msg).join(". ");
   return body.detail || "No se pudo completar la solicitud.";
@@ -20,7 +32,11 @@ async function api(path, options = {}) {
       ...(state.token ? {Authorization: "Bearer " + state.token} : {}),
       ...options.headers
     }});
-  } catch { throw new Error("No hay conexión con el servidor. Inténtalo nuevamente."); }
+  } catch {
+    const message = "Error de red. Inténtalo nuevamente.";
+    showToast(message, "error");
+    throw new Error(message);
+  }
   if (response.status === 401 && path !== "/auth/login") {
     logout();
     throw new Error("Tu sesión venció. Vuelve a ingresar.");
@@ -35,8 +51,10 @@ async function api(path, options = {}) {
 }
 async function busy(button, action) {
   button.disabled = true;
-  try { await action(); } catch (error) { notice(error.message, true); }
-  finally { button.disabled = false; }
+  try { await action(); } catch (error) {
+    notice(error.message, true);
+    if (error.message === "Error de red. Inténtalo nuevamente.") showToast(error.message, "error");
+  } finally { button.disabled = false; }
 }
 function showView(view) {
   state.view = view;
@@ -113,22 +131,54 @@ async function loadAirports() {
       (airports.length - located.length) + " aeropuertos sin coordenadas válidas.";
   } catch (error) { $("map-status").textContent = error.message; throw error; }
 }
+function renderAirportDetail(airport) {
+  const empty = !airport;
+  $("airport-detail-name").textContent = empty ? "Selecciona un aeropuerto" : airport.name;
+  $("airport-detail-city").textContent = empty ? "Elige uno de la lista para ver información del destino." : (airport.city || "Ciudad no informada") + " · " + (airport.country || "País no informado");
+  $("airport-detail-iata").textContent = airport?.iata_code || "—";
+  $("airport-detail-country").textContent = airport?.country || "—";
+  $("airport-detail-city2").textContent = airport?.city || "—";
+  $("airport-detail-coords").textContent = Number.isFinite(airport?.latitude) && Number.isFinite(airport?.longitude)
+    ? `${airport.latitude}, ${airport.longitude}`
+    : "—";
+}
 function renderAirports() {
-  const query = $("airport-search").value.toLocaleLowerCase("es");
-  const matching = state.airports.filter(a => [a.name, a.city, a.iata_code].join(" ").toLocaleLowerCase("es").includes(query));
+  const query = $("airport-search").value.trim().toLocaleLowerCase("es");
+  const field = $("airport-filter-type").value;
+  const matching = state.airports.filter(airport => {
+    const haystack = field === "all"
+      ? [airport.name, airport.city, airport.country, airport.iata_code].join(" ")
+      : String(airport[field] ?? "");
+    return haystack.toLocaleLowerCase("es").includes(query);
+  });
   $("airport-list").replaceChildren();
   for (const airport of matching.slice(0, state.shown)) {
     const column = document.createElement("div"); column.className = "col-md-6 col-lg-4";
     const card = document.createElement("article"); card.className = "panel airport-card";
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.addEventListener("click", () => renderAirportDetail(airport));
+    card.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        renderAirportDetail(airport);
+      }
+    });
     const code = document.createElement("span"); code.className = "code"; code.textContent = airport.iata_code || "SIN IATA";
     const title = document.createElement("h3"); title.textContent = airport.name;
     const city = document.createElement("p"); city.className = "small text-secondary mb-0"; city.textContent = airport.city || "Ciudad no informada";
     card.append(code, title, city); column.append(card); $("airport-list").append(column);
   }
-  if (!matching.length) $("airport-list").textContent = "No encontramos aeropuertos con esa búsqueda.";
+  if (!matching.length) {
+    $("airport-list").textContent = "No encontramos aeropuertos con esa búsqueda.";
+    renderAirportDetail(null);
+  } else if (!document.querySelector(".airport-card.selected")) {
+    renderAirportDetail(matching[0]);
+  }
   $("more-airports").hidden = matching.length <= state.shown;
 }
 $("airport-search").addEventListener("input", () => { state.shown = 12; renderAirports(); });
+$("airport-filter-type").addEventListener("change", () => { state.shown = 12; renderAirports(); });
 $("more-airports").addEventListener("click", () => { state.shown += 12; renderAirports(); });
 $("reload-airports").addEventListener("click", e => busy(e.currentTarget, loadAirports));
 
@@ -184,7 +234,9 @@ $("confirm-delete").addEventListener("click", e => busy(e.currentTarget, async (
   await api("/itineraries/" + pendingDelete, {method: "DELETE"});
   $("delete-dialog").close();
   state.trips = state.trips.filter(t => t.id !== pendingDelete); renderTrips();
-  notice("Itinerario eliminado.");
+  const message = "Itinerario eliminado.";
+  showToast(message, "success");
+  notice(message);
 }));
 $("itinerary-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -198,7 +250,9 @@ $("itinerary-form").addEventListener("submit", async (event) => {
     const saved = await api("/itineraries" + (id ? "/" + id : ""), {method: id ? "PUT" : "POST", body: JSON.stringify(body)});
     state.trips = id ? state.trips.map(t => t.id === id ? saved : t) : [...state.trips, saved];
     $("itinerary-dialog").close(); renderTrips(); showView("trips");
-    notice(id ? "Cambios guardados." : "Itinerario creado. La notificación se procesará en segundo plano.");
+    const message = id ? "Cambios guardados." : "Itinerario creado.";
+    showToast(message, "success");
+    notice(message);
   } catch (error) { $("form-error").textContent = error.message; $("form-error").hidden = false; }
   finally { button.disabled = false; }
 });
