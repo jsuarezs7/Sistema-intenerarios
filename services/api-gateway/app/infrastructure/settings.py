@@ -4,6 +4,14 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _default_frontend_dir() -> str:
+    settings_file = Path(__file__).resolve()
+    repo_or_container_root = (
+        settings_file.parents[4] if len(settings_file.parents) > 4 else settings_file.parents[-1]
+    )
+    return str(repo_or_container_root / "frontend")
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     jwt_secret: str = Field(min_length=32)
@@ -15,4 +23,4 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     rate_limit: int = Field(default=120, ge=1)
     login_rate_limit: int = Field(default=10, ge=1)
-    frontend_dir: str = str(Path(__file__).resolve().parents[4] / "frontend")
+    frontend_dir: str = Field(default_factory=_default_frontend_dir)
