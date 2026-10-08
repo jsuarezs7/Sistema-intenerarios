@@ -41,6 +41,14 @@ async def main() -> None:
             except httpx.HTTPError:
                 pass
             await asyncio.sleep(2)
+        for path, content_types in (
+            ("/", {"text/html"}),
+            ("/static/styles.css", {"text/css"}),
+            ("/static/app.js", {"text/javascript", "application/javascript"}),
+        ):
+            asset = await client.get(path)
+            assert asset.status_code == 200, f"Frontend asset unavailable: {path}"
+            assert asset.headers["content-type"].split(";")[0] in content_types, path
         response = await client.post(
             "/api/auth/login",
             json={
