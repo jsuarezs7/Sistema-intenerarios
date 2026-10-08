@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,4 +15,4 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     rate_limit: int = Field(default=120, ge=1)
     login_rate_limit: int = Field(default=10, ge=1)
-    frontend_dir: str = "../../frontend"
+    frontend_dir: str = str(Path(__file__).resolve().parents[4] / "frontend")

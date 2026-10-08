@@ -1,6 +1,6 @@
 # Sistema de Itinerarios Personales
 
-Proyecto universitario de Arquitectura de Software Emergente: FastAPI, microservicios, eventos y funciones serverless simuladas. Desarrollo en la rama `Develop`.
+Proyecto universitario de Arquitectura de Software Emergente: FastAPI, microservicios, eventos y funciones serverless simuladas. Desarrollo en la rama `develop`.
 
 ## Ejecutar
 

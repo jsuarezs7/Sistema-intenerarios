@@ -162,7 +162,7 @@ Revisar toda migración generada antes de aplicarla. Para desarrollo individual 
 
 ## Despliegue en Render
 
-1. Publicar el repositorio y fusionar `Develop` en `main` cuando corresponda. El Blueprint y los hooks siguen `main`.
+1. Publicar el repositorio y fusionar `develop` en `main` cuando corresponda. El Blueprint y los hooks siguen `main`.
 2. Crear un Blueprint desde `render.yaml`. Declara gateway Web Service, servicios HTTP privados, dos workers, dos Render Postgres y Render Key Value. No fija planes: revisar los recursos/costos elegidos en Render.
 3. Render genera un único JWT_SECRET en el grupo compartido. Ingresar DEMO_USERNAME y DEMO_PASSWORD (mínimo 12 caracteres) para el gateway.
 4. Configurar la misma RABBITMQ_URL externa para Outbox y Notification, preferiblemente `amqps://`. RabbitMQ no se declara como servicio gestionado; debe existir un broker externo con colas durables. No usar un contenedor sin disco para mensajería persistente.
@@ -193,3 +193,23 @@ CI ejecuta Ruff, formato y pytest/cobertura por servicio en Python 3.11 y 3.12; 
 - [OpenTelemetry Python: exportadores OTLP](https://opentelemetry.io/docs/languages/python/exporters/).
 - [Jaeger: recepción OTLP HTTP en 4318](https://www.jaegertracing.io/docs/2.1/apis/).
 - [Circuitbreaker: compatibilidad asíncrona](https://pypi.org/project/circuitbreaker/).
+
+## Archivos estáticos y actualización desde VS Code
+
+Trabajar en `develop`, validar y publicar los cambios:
+
+```powershell
+git switch develop
+git pull --ff-only origin develop
+git add <archivos-modificados>
+git commit -m "Describe la actualización"
+git push origin develop
+```
+
+Crear un pull request de `develop` a `main` y fusionarlo cuando CI esté verde. CI vuelve a ejecutarse en `main`; si pasa, Deploy Render solicita los despliegues mediante los seis hooks configurados en los secrets de GitHub. Revisar Actions y el estado final de cada servicio en Render.
+
+Los errores MIME `text/plain` acompañados de 404 pueden ser respuestas de error, no archivos CSS/JavaScript. No desactivar `nosniff`. Comprobar que `/`, `/static/styles.css` y `/static/app.js` devuelvan 200 con tipos HTML, CSS y JavaScript. La prueba de humo también verifica esas respuestas en Docker.
+
+El gateway resuelve el frontend desde la ubicación del código, sin depender de la carpeta de ejecución. En Docker usa `FRONTEND_DIR=/frontend`. Si faltan index.html, styles.css o app.js, el arranque falla indicando la carpeta y los archivos ausentes.
+
+En Render revisar: runtime Docker, contexto de compilación en la raíz (`.`), Dockerfile `services/api-gateway/Dockerfile`, rama `main` y commit desplegado. El Dockerfile copia frontend a /frontend; evitar que una variable FRONTEND_DIR manual apunte a otra carpeta. Los ajustes del servicio creado manualmente pueden diferir de render.yaml.

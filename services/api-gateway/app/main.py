@@ -76,13 +76,19 @@ def create_app(service=None, limiter=None, settings: Settings | None = None) -> 
         return response
 
     app.include_router(router(tokens.dependency()), prefix="/api")
-    frontend = Path(settings.frontend_dir)
-    if frontend.is_dir():
-        app.mount("/static", StaticFiles(directory=frontend), name="static")
+    frontend = Path(settings.frontend_dir).resolve()
+    required_assets = ("index.html", "styles.css", "app.js")
+    missing_assets = [name for name in required_assets if not (frontend / name).is_file()]
+    if missing_assets:
+        raise RuntimeError(
+            f"Frontend files missing in {frontend}: {', '.join(missing_assets)}. "
+            "Check FRONTEND_DIR and the gateway Docker build context."
+        )
+    app.mount("/static", StaticFiles(directory=frontend), name="static")
 
-        @app.get("/", include_in_schema=False)
-        async def index():
-            return FileResponse(frontend / "index.html")
+    @app.get("/", include_in_schema=False)
+    async def index():
+        return FileResponse(frontend / "index.html")
 
     @app.get("/health", tags=["Operations"])
     async def health():
