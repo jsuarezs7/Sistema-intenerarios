@@ -1,0 +1,38 @@
+services:
+  notification-function:
+    build:
+      context: ../..
+      dockerfile: services/notification-function/Dockerfile
+    env_file: ../../.env
+    environment:
+      NOTIFICATION_DATABASE_URL: postgresql+asyncpg://notifications:notifications@notification-db:5432/notifications
+      RABBITMQ_URL: amqp://itinerary:itinerary@rabbitmq:5672/
+    depends_on:
+      notification-db: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  notification-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: notifications
+      POSTGRES_PASSWORD: notifications
+      POSTGRES_DB: notifications
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notifications -d notifications"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: itinerary
+      RABBITMQ_DEFAULT_PASS: itinerary
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 15

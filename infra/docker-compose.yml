@@ -55,12 +55,12 @@ services:
     restart: unless-stopped
 
   rabbitmq:
-    image: rabbitmq:4.0-management-alpine
+    image: rabbitmq:3-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-itinerary}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
     volumes: [rabbitmq-data:/var/lib/rabbitmq]
-    ports: ["127.0.0.1:15672:15672"]
+    ports: ["${RABBITMQ_PORT:-5672}:5672", "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"]
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -74,15 +74,22 @@ services:
     restart: unless-stopped
 
   airport-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_REPOSITORY:-owner/sistema-itinerarios}/airport-service:${IMAGE_TAG:-latest}
     build: {context: .., dockerfile: services/airport-service/Dockerfile}
     environment:
       <<: *auth-env
       REDIS_URL: redis://redis:6379/0
     depends_on:
       redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   itinerary-migrate:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_REPOSITORY:-owner/sistema-itinerarios}/itinerary-service:${IMAGE_TAG:-latest}
     build: {context: .., dockerfile: services/itinerary-service/Dockerfile}
     command: ["alembic", "upgrade", "head"]
     environment: *db-env
@@ -90,13 +97,20 @@ services:
       postgres: {condition: service_healthy}
 
   itinerary-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_REPOSITORY:-owner/sistema-itinerarios}/itinerary-service:${IMAGE_TAG:-latest}
     build: {context: .., dockerfile: services/itinerary-service/Dockerfile}
     environment: *db-env
     depends_on:
       itinerary-migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   outbox-worker:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_REPOSITORY:-owner/sistema-itinerarios}/itinerary-service:${IMAGE_TAG:-latest}
     build: {context: .., dockerfile: services/itinerary-service/Dockerfile}
     command: ["python", "-m", "app.infrastructure.outbox_worker"]
     environment:
@@ -108,6 +122,7 @@ services:
     restart: unless-stopped
 
   notification-migrate:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_REPOSITORY:-owner/sistema-itinerarios}/notification-function:${IMAGE_TAG:-latest}
     build: {context: .., dockerfile: services/notification-function/Dockerfile}
     command: ["alembic", "upgrade", "head"]
     environment: *notification-env
@@ -115,14 +130,24 @@ services:
       notification-db: {condition: service_healthy}
 
   notification-function:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_REPOSITORY:-owner/sistema-itinerarios}/notification-function:${IMAGE_TAG:-latest}
     build: {context: .., dockerfile: services/notification-function/Dockerfile}
-    environment: *notification-env
+    environment:
+      <<: *notification-env
+      USER_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-itinerary}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-itineraries}
     depends_on:
       notification-migrate: {condition: service_completed_successfully}
       rabbitmq: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   report-function:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_REPOSITORY:-owner/sistema-itinerarios}/report-function:${IMAGE_TAG:-latest}
     build: {context: .., dockerfile: services/report-function/Dockerfile}
     environment:
       <<: *auth-env
@@ -130,12 +155,14 @@ services:
     restart: unless-stopped
 
   api-gateway:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_REPOSITORY:-owner/sistema-itinerarios}/api-gateway:${IMAGE_TAG:-latest}
     build: {context: .., dockerfile: services/api-gateway/Dockerfile}
     environment:
       <<: *auth-env
       DEMO_USERNAME: ${DEMO_USERNAME:-student}
       DEMO_PASSWORD: ${DEMO_PASSWORD:?Set DEMO_PASSWORD}
       REDIS_URL: redis://redis:6379/1
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-itinerary}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-itineraries}
       AIRPORT_SERVICE_URL: http://airport-service:8000
       ITINERARY_SERVICE_URL: http://itinerary-service:8000
       REPORT_SERVICE_URL: http://report-function:8000
@@ -145,7 +172,24 @@ services:
       airport-service: {condition: service_started}
       itinerary-service: {condition: service_started}
       report-function: {condition: service_started}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
+
+  frontend:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_REPOSITORY:-owner/sistema-itinerarios}/frontend:${IMAGE_TAG:-latest}
+    build: {context: .., dockerfile: frontend/Dockerfile}
+    ports: ["${FRONTEND_PORT:-8080}:80"]
+    depends_on:
+      api-gateway: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   itinerary-data:

@@ -13,3 +13,7 @@ class InvalidCredentials(Exception):
 
 class UpstreamUnavailable(Exception):
     pass
+
+
+class UserAlreadyExists(Exception):
+    pass

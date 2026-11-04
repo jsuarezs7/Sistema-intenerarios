@@ -1,0 +1,23 @@
+services:
+  itinerary-service:
+    build:
+      context: ../..
+      dockerfile: services/itinerary-service/Dockerfile
+    env_file: ../../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://itinerary:itinerary@itinerary-db:5432/itineraries
+      AIRPORT_SERVICE_URL: http://host.docker.internal:8001
+    ports: ["8002:8000"]
+    depends_on:
+      itinerary-db: {condition: service_healthy}
+  itinerary-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: itinerary
+      POSTGRES_PASSWORD: itinerary
+      POSTGRES_DB: itineraries
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U itinerary -d itineraries"]
+      interval: 5s
+      timeout: 3s
+      retries: 15

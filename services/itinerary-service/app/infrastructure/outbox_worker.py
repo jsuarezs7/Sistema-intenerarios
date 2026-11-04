@@ -13,12 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.infrastructure.database import OutboxRow
+from app.infrastructure.messaging import RabbitMQEventPublisher
 from app.infrastructure.settings import Settings
 
 logger = logging.getLogger(__name__)
 
 
-async def publish_batch(sessions, exchange, batch_size: int = 50) -> int:
+async def publish_batch(sessions, publisher, batch_size: int = 50) -> int:
     count = 0
     async with sessions() as session, session.begin():
         rows = await session.scalars(
@@ -39,19 +40,28 @@ async def publish_batch(sessions, exchange, batch_size: int = 50) -> int:
                     headers = {"correlation_id": correlation_id.get()}
                     inject(headers)
                     # Confirms precede the marker. Crash => redelivery, never silent loss.
-                    await exchange.publish(
-                        aio_pika.Message(
-                            body=json.dumps(row.payload).encode(),
-                            content_type="application/json",
-                            message_id=str(row.id),
-                            type="ItineraryCreatedEvent",
+                    payload = json.dumps(row.payload).encode()
+                    if isinstance(publisher, RabbitMQEventPublisher):
+                        await publisher.publish(
+                            payload,
+                            event_id=str(row.id),
+                            event_type="ItineraryCreatedEvent",
                             headers=headers,
-                            delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                        ),
-                        routing_key=ROUTING_KEY,
-                        mandatory=True,
-                        timeout=10,
-                    )
+                        )
+                    else:
+                        await publisher.publish(
+                            aio_pika.Message(
+                                body=payload,
+                                content_type="application/json",
+                                message_id=str(row.id),
+                                type="ItineraryCreatedEvent",
+                                headers=headers,
+                                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                            ),
+                            routing_key=ROUTING_KEY,
+                            mandatory=True,
+                            timeout=10,
+                        )
                     row.published_at = datetime.now(UTC)
                     count += 1
                     logger.info("outbox_event_published", extra={"event_id": str(row.id)})
@@ -74,8 +84,9 @@ async def run() -> None:
                         publisher_confirms=True, on_return_raises=True
                     )
                     exchange, _ = await declare_topology(channel)
+                    publisher = RabbitMQEventPublisher(exchange, ROUTING_KEY)
                     while True:
-                        await publish_batch(sessions, exchange)
+                        await publish_batch(sessions, publisher)
                         await asyncio.sleep(settings.outbox_poll_seconds)
             except Exception:
                 logger.warning("outbox_retry_after_failure")
