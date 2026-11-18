@@ -1,0 +1,20 @@
+# SonarQube local para revisar calidad, pruebas y cobertura.
+# Uso: .\scripts\quality.ps1   (o ver docs/README.md, sección "Calidad y pruebas")
+name: sistema-itinerarios-quality
+
+services:
+  sonarqube:
+    image: sonarqube:25.1.0.102122-community
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    ports: ["127.0.0.1:${SONAR_PORT:-9000}:9000"]
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+    restart: unless-stopped
+
+volumes:
+  sonarqube-data:
+  sonarqube-extensions:
+  sonarqube-logs:

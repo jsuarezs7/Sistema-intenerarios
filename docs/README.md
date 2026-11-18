@@ -173,6 +173,17 @@ Revisar toda migración generada antes de aplicarla. Para desarrollo individual 
 
 CI ejecuta Ruff, formato y pytest/cobertura por servicio en Python 3.11 y 3.12; otro job valida, construye y ejecuta la prueba de humo con Compose y un catálogo de prueba. Deploy se activa cuando CI finaliza correctamente para un push a main. El autodeploy de Render está desactivado para no saltarse ese paso. Los hooks solicitan un despliegue; no esperan a que finalice ni garantizan que todos los servicios actualicen al mismo tiempo. La activación inicial del Blueprint sí requiere revisar su estado en Render.
 
+## Calidad y pruebas (SonarQube local)
+
+Desde la raíz, con Docker Desktop abierto y las dependencias de desarrollo instaladas:
+
+```powershell
+.\scripts\quality.ps1              # pruebas + cobertura + análisis en SonarQube
+.\scripts\quality.ps1 -SkipSonar   # solo pruebas y cobertura
+```
+
+El script ejecuta pytest en los cinco servicios, deja reportes en `reports/<servicio>/` (JUnit, `coverage.xml` y `htmlcov/index.html`) y publica el análisis en http://localhost:9000/dashboard?id=sistema-itinerarios (usuario `admin` / `admin` la primera vez). Si cambias la contraseña de admin, usa `-AdminPassword <nueva>`. Para apagar SonarQube: `docker compose -f infra/docker-compose.sonar.yml down`.
+
 ## Trazabilidad
 
 | Requerimiento | Implementación principal | Verificación |
