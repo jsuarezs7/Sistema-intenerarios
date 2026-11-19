@@ -104,8 +104,7 @@ def build_prompt(root: Path, max_file_bytes: int) -> str:
     )
     skipped_text = "\n".join(f"- {item}" for item in skipped) or "- Ninguno"
     evidence = "\n\n".join(
-        f"## {category}\n\n" + "\n\n".join(items)
-        for category, items in sections.items()
+        f"## {category}\n\n" + "\n\n".join(items) for category, items in sections.items()
     )
     return f"""# Prompt para diagrama de arquitectura: Sistema de Itinerarios
 

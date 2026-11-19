@@ -122,3 +122,27 @@ async def test_worker_confirms_before_marking_and_failed_delivery_retries(system
     message = exchange.publish.call_args.args[0]
     assert message.delivery_mode == 2
     ItineraryCreatedEvent.model_validate_json(message.body)
+
+
+async def test_worker_uses_rabbitmq_publisher_port(system, headers):
+    from app.infrastructure.messaging import RabbitMQEventPublisher
+
+    client, sessions, _ = system
+    await client.post("/itineraries", json=BODY, headers=headers)
+    publisher = RabbitMQEventPublisher(AsyncMock(), "itinerary.created")
+    publisher.publish = AsyncMock()
+    assert await publish_batch(sessions, publisher) == 1
+    assert publisher.publish.call_args.kwargs["event_type"] == "ItineraryCreatedEvent"
+
+
+async def test_update_fails_if_deleted_between_read_and_write(system, headers, monkeypatch):
+    client, _, airports = system
+    created = (await client.post("/itineraries", json=BODY, headers=headers)).json()
+    path = "/itineraries/" + created["id"]
+
+    async def delete_during_validation(airport_id, token):
+        await client.delete(path, headers=headers)
+        return True
+
+    airports.exists.side_effect = delete_during_validation
+    assert (await client.put(path, json=BODY, headers=headers)).status_code == 404

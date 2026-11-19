@@ -26,7 +26,15 @@ jobs:
       - run: ruff format --check services/${{ matrix.service }} shared scripts
       - name: Unit and integration tests
         working-directory: services/${{ matrix.service }}
-        run: python -m pytest --cov=app --cov-report=term-missing --cov-report=xml -q
+        run: >-
+          python -m pytest -q --cov=app --cov-config=../../scripts/coverage-relative.ini
+          --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+      - name: Shared library tests
+        if: matrix.service == 'airport-service'
+        working-directory: shared
+        run: >-
+          python -m pytest -q --cov=itinerary_shared --cov-config=../scripts/coverage-relative.ini
+          --cov-report=term-missing --cov-fail-under=90
       - name: Exercise both database migrations
         if: matrix.service == 'itinerary-service'
         run: python scripts/check_migrations.py
