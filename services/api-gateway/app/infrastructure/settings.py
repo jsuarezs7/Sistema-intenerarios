@@ -9,6 +9,8 @@ def _default_frontend_dir() -> str:
     repo_or_container_root = (
         settings_file.parents[4] if len(settings_file.parents) > 4 else settings_file.parents[-1]
     )
+    if str(repo_or_container_root) in {"/", "\\"}:
+        return "/frontend"
     return str(repo_or_container_root / "frontend")
 
 
@@ -21,6 +23,7 @@ class Settings(BaseSettings):
     itinerary_service_url: str = "http://localhost:8002"
     report_service_url: str = "http://localhost:8003"
     redis_url: str = "redis://localhost:6379/0"
+    database_url: str = Field(min_length=1)
     rate_limit: int = Field(default=120, ge=1)
     login_rate_limit: int = Field(default=10, ge=1)
     frontend_dir: str = Field(default_factory=_default_frontend_dir)

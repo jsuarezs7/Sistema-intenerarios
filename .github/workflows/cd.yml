@@ -1,0 +1,63 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/sistema-itinerarios
+
+jobs:
+  build-publish:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: airport-service
+            dockerfile: services/airport-service/Dockerfile
+          - name: api-gateway
+            dockerfile: services/api-gateway/Dockerfile
+          - name: itinerary-service
+            dockerfile: services/itinerary-service/Dockerfile
+          - name: notification-function
+            dockerfile: services/notification-function/Dockerfile
+          - name: report-function
+            dockerfile: services/report-function/Dockerfile
+          - name: frontend
+            dockerfile: frontend/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}
+
+  deploy:
+    needs: build-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on VM
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd "${{ secrets.DEPLOY_PATH }}"
+            export IMAGE_REGISTRY=ghcr.io
+            export IMAGE_REPOSITORY=${{ github.repository }}
+            export IMAGE_TAG=${{ github.sha }}
+            docker compose pull
+            docker compose up -d

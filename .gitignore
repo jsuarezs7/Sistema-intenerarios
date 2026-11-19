@@ -11,3 +11,7 @@ htmlcov/
 
 *.egg-info/
 artifacts/
+.architecture_prompt.md
+architecture_prompt.md
+reports/
+.scannerwork/

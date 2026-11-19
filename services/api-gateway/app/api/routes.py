@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
+from inspect import isawaitable
 from itinerary_shared.auth import Principal
 from itinerary_shared.schemas import ItineraryInput
 from pydantic import BaseModel, Field
@@ -11,12 +12,27 @@ class LoginBody(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
+class RegisterBody(BaseModel):
+    username: str = Field(min_length=3, max_length=128, pattern=r"^[A-Za-z0-9_.-]+$")
+    name: str = Field(min_length=2, max_length=160)
+    email: str = Field(min_length=5, max_length=320)
+    phone: str = Field(min_length=7, max_length=32, pattern=r"^\+?[0-9 ()-]{7,31}$")
+    password: str = Field(min_length=12, max_length=256)
+
+
 def router(authenticate):
     routes = APIRouter()
 
     @routes.post("/auth/login", tags=["Authentication"])
     async def login(body: LoginBody, request: Request):
         token = request.app.state.service.login(body.username, body.password)
+        if isawaitable(token):
+            token = await token
+        return {"access_token": token, "token_type": "bearer", "expires_in": 3600}
+
+    @routes.post("/auth/register", status_code=201, tags=["Authentication"])
+    async def register(body: RegisterBody, request: Request):
+        token = await request.app.state.service.register(**body.model_dump())
         return {"access_token": token, "token_type": "bearer", "expires_in": 3600}
 
     async def forward(request, principal, path, body=b""):

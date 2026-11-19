@@ -5,3 +5,4 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     notification_database_url: str
     rabbitmq_url: str
+    user_database_url: str | None = None

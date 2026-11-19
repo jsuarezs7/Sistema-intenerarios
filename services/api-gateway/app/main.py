@@ -8,11 +8,14 @@ from fastapi.staticfiles import StaticFiles
 from itinerary_shared.auth import TokenService
 from itinerary_shared.observability import configure
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from itinerary_shared.database import async_database_url
 
 from app.api.routes import router
 from app.application.service import GatewayService
-from app.domain.models import InvalidCredentials, UpstreamUnavailable
+from app.domain.models import InvalidCredentials, UpstreamUnavailable, UserAlreadyExists
 from app.infrastructure.adapters import DemoIdentityAdapter, HttpGatewayAdapter, RedisRateLimiter
+from app.infrastructure.users import SqlUserRepository
 from app.infrastructure.settings import Settings
 
 
@@ -26,6 +29,8 @@ def create_app(service=None, limiter=None, settings: Settings | None = None) -> 
             yield
             return
         redis = Redis.from_url(settings.redis_url, socket_timeout=2, socket_connect_timeout=2)
+        engine = create_async_engine(async_database_url(settings.database_url), pool_pre_ping=True)
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
         async with httpx.AsyncClient(timeout=60) as client:
             app.state.service = service or GatewayService(
                 DemoIdentityAdapter(settings.demo_username, settings.demo_password, tokens),
@@ -35,6 +40,7 @@ def create_app(service=None, limiter=None, settings: Settings | None = None) -> 
                     settings.itinerary_service_url,
                     settings.report_service_url,
                 ),
+                SqlUserRepository(sessions),
             )
             app.state.limiter = limiter or RedisRateLimiter(
                 redis,
@@ -45,6 +51,7 @@ def create_app(service=None, limiter=None, settings: Settings | None = None) -> 
                 yield
             finally:
                 await redis.aclose()
+                await engine.dispose()
 
     app = FastAPI(title="Sistema de Itinerarios · Gateway", version="1.0.0", lifespan=lifespan)
     app.state.service, app.state.limiter = service, limiter
@@ -105,6 +112,10 @@ def create_app(service=None, limiter=None, settings: Settings | None = None) -> 
     @app.exception_handler(UpstreamUnavailable)
     async def unavailable(request: Request, exc):
         return JSONResponse(status_code=503, content={"detail": "Upstream service unavailable"})
+
+    @app.exception_handler(UserAlreadyExists)
+    async def conflict(request: Request, exc):
+        return JSONResponse(status_code=409, content={"detail": "Username or email is already registered"})
 
     return app
 

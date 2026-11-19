@@ -10,3 +10,6 @@
 **/.coverage*
 **/*.egg-info
 artifacts
+reports
+**/htmlcov
+.scannerwork

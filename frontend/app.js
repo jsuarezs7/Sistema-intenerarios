@@ -95,6 +95,30 @@ $("login-form").addEventListener("submit", async (event) => {
     $("login-password").value = ""; $("notice").hidden = true;
     await enter();
   });
+  $("login-tab").addEventListener("click", () => {
+    $("login-form").hidden = false; $("register-form").hidden = true;
+    $("login-tab").classList.add("active"); $("register-tab").classList.remove("active");
+  });
+  $("register-tab").addEventListener("click", () => {
+    $("login-form").hidden = true; $("register-form").hidden = false;
+    $("register-tab").classList.add("active"); $("login-tab").classList.remove("active");
+  });
+  $("register-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await busy(event.submitter, async () => {
+      const username = $("register-user").value.trim();
+      const result = await api("/auth/register", {method: "POST", body: JSON.stringify({
+        username, name: $("register-name").value.trim(), email: $("register-email").value.trim(),
+        phone: $("register-phone").value.trim(), password: $("register-password").value
+      })});
+      state.token = result.access_token;
+      sessionStorage.setItem("ruta-token", state.token);
+      sessionStorage.setItem("ruta-user", username);
+      $("register-form").reset(); $("notice").hidden = true;
+      showToast("Cuenta creada correctamente.", "success");
+      await enter();
+    });
+  });
 });
 $("logout").addEventListener("click", logout);
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => showView(button.dataset.view)));

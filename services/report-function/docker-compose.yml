@@ -1,0 +1,9 @@
+services:
+  report-function:
+    build:
+      context: ../..
+      dockerfile: services/report-function/Dockerfile
+    env_file: ../../.env
+    environment:
+      ITINERARY_SERVICE_URL: http://host.docker.internal:8002
+    ports: ["8003:8000"]
