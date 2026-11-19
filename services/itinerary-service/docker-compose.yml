@@ -1,3 +1,4 @@
+# Uso: docker compose --env-file ../../.env up --build  (credenciales desde el .env de la raiz)
 services:
   itinerary-service:
     build:
@@ -5,7 +6,7 @@ services:
       dockerfile: services/itinerary-service/Dockerfile
     env_file: ../../.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://itinerary:itinerary@itinerary-db:5432/itineraries
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-itinerary}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@itinerary-db:5432/${POSTGRES_DB:-itineraries}
       AIRPORT_SERVICE_URL: http://host.docker.internal:8001
     ports: ["8002:8000"]
     depends_on:
@@ -13,11 +14,11 @@ services:
   itinerary-db:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: itinerary
-      POSTGRES_PASSWORD: itinerary
-      POSTGRES_DB: itineraries
+      POSTGRES_USER: ${POSTGRES_USER:-itinerary}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-itineraries}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U itinerary -d itineraries"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 3s
       retries: 15

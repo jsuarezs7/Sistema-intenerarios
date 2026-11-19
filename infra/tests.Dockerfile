@@ -9,8 +9,13 @@ COPY services/itinerary-service/requirements.txt /deps/itinerary-service.txt
 COPY services/api-gateway/requirements.txt /deps/api-gateway.txt
 COPY services/notification-function/requirements.txt /deps/notification-function.txt
 COPY services/report-function/requirements.txt /deps/report-function.txt
-RUN pip install --no-cache-dir /deps/shared -r requirements-dev.txt \
+# Solo ruedas binarias (sin scripts de instalacion), salvo el paquete local itinerary-shared.
+RUN python -m venv /venv \
+    && /venv/bin/pip install --no-cache-dir --only-binary :all: --no-binary itinerary-shared \
+    /deps/shared -r requirements-dev.txt \
     -r airport-service.txt -r itinerary-service.txt -r api-gateway.txt \
     -r notification-function.txt -r report-function.txt
-ENV PYTHONDONTWRITEBYTECODE=1
+RUN useradd --create-home tester
+USER tester
+ENV PATH="/venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1
 WORKDIR /src
