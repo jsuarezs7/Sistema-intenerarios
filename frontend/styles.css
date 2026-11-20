@@ -27,7 +27,6 @@
 
 /* Workspace */
 .dashboard-title{font-size:2.7rem}
-.quick-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:26px}.stat{padding:18px 22px;display:flex;align-items:baseline;gap:12px;animation:rise .6s var(--ease) both}.stat:nth-child(2){animation-delay:.08s}.stat:nth-child(3){animation-delay:.16s}.stat strong{font-size:1.9rem;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)}.stat span{font-size:.82rem;color:var(--muted)}
 .view-nav{position:relative;display:flex;gap:24px;border-bottom:1px solid var(--line);overflow:auto}.view-nav button{border:0;background:none;padding:17px 0;color:var(--muted);font-size:.9rem;white-space:nowrap;transition:color .25s}.view-nav button:hover{color:var(--ink)}.view-nav button[aria-current]{color:var(--ink);font-weight:600}.nav-ink{position:absolute;left:0;bottom:0;width:0;height:3px;border-radius:3px 3px 0 0;background:var(--green);transition:transform .4s var(--ease),width .4s var(--ease)}.count{background:var(--orange-soft);border-radius:5px;font-size:.7rem;padding:3px 6px;margin-left:3px;display:inline-block}.count.bump{animation:bump .45s var(--ease)}
 .view-enter{animation:view-in .45s var(--ease)}
 

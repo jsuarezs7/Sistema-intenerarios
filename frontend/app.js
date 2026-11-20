@@ -181,7 +181,6 @@ function logout() {
   $("trips-list").replaceChildren(); $("report-metrics").replaceChildren();
   $("report-routes").replaceChildren(); $("report-routes").hidden = true;
   $("report-caption").textContent = "Genera un reporte para consultar las métricas de tus itinerarios.";
-  for (const id of ["stat-airports", "stat-trips"]) { $(id).textContent = "0"; $(id).dataset.value = 0; }
   startHero();
 }
 async function enter() {
@@ -192,18 +191,6 @@ async function enter() {
   showView("explore");
   const results = await Promise.allSettled([loadAirports(), loadTrips()]);
   for (const result of results) if (result.status === "rejected") notice(result.reason.message, true);
-}
-function updateStats() {
-  countUp($("stat-airports"), state.airports.length);
-  countUp($("stat-trips"), state.trips.length);
-  const next = state.trips.map(trip => ({trip, days: daysUntil(trip.departure_date)}))
-    .filter(item => item.days >= 0).sort((a, b) => a.days - b.days)[0];
-  if (!next) {
-    $("stat-next").textContent = "—"; $("stat-next-label").textContent = "sin viajes próximos";
-    return;
-  }
-  $("stat-next").textContent = next.days === 0 ? "¡Hoy!" : next.days === 1 ? "Mañana" : next.days + " días";
-  $("stat-next-label").textContent = (next.days > 1 ? "para tu viaje " : "sales en ") + routeLabel(next.trip);
 }
 
 $("login-form").addEventListener("submit", async (event) => {
@@ -256,7 +243,7 @@ async function loadAirports() {
     if (!state.token) return;
     state.airports = airports;
     $("map-caption").textContent = airports.length + " aeropuertos para explorar";
-    renderAirports(); renderTrips(); updateStats();
+    renderAirports(); renderTrips();
     const located = airports.filter(hasCoordinates);
     if (!window.Plotly) throw new Error("No se pudo cargar el mapa. La lista de aeropuertos sigue disponible.");
     const escape = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -365,7 +352,7 @@ async function loadTrips() {
     if (page.length < 100) break;
   }
   if (!state.token) return;
-  state.trips = trips; renderTrips(); updateStats();
+  state.trips = trips; renderTrips();
 }
 function renderTrips(highlightId = null) {
   if ($("trip-count").textContent !== String(state.trips.length)) {
@@ -431,7 +418,7 @@ $("confirm-delete").addEventListener("click", e => busy(e.currentTarget, async (
   const card = [...document.querySelectorAll(".trip-card")].find(item => item.dataset.id === String(id));
   if (card && !reduceMotion) { card.classList.add("leaving"); await wait(280); }
   state.trips = state.trips.filter(t => t.id !== id); state.reportLoaded = false;
-  renderTrips(); updateStats();
+  renderTrips();
   const message = "Itinerario eliminado.";
   showToast(message, "success");
   notice(message);
@@ -448,7 +435,7 @@ $("itinerary-form").addEventListener("submit", async (event) => {
     const saved = await api("/itineraries" + (id ? "/" + id : ""), {method: id ? "PUT" : "POST", body: JSON.stringify(body)});
     state.trips = id ? state.trips.map(t => t.id === id ? saved : t) : [...state.trips, saved];
     state.reportLoaded = false;
-    $("itinerary-dialog").close(); showView("trips"); renderTrips(saved.id); updateStats();
+    $("itinerary-dialog").close(); showView("trips"); renderTrips(saved.id);
     const message = id ? "Cambios guardados." : "Itinerario creado.";
     showToast(message, "success");
     notice(message);
