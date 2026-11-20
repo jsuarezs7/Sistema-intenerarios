@@ -1,3 +1,4 @@
+# Uso: docker compose --env-file ../../.env up --build  (credenciales desde el .env de la raiz)
 services:
   notification-function:
     build:
@@ -5,8 +6,8 @@ services:
       dockerfile: services/notification-function/Dockerfile
     env_file: ../../.env
     environment:
-      NOTIFICATION_DATABASE_URL: postgresql+asyncpg://notifications:notifications@notification-db:5432/notifications
-      RABBITMQ_URL: amqp://itinerary:itinerary@rabbitmq:5672/
+      NOTIFICATION_DATABASE_URL: postgresql+asyncpg://notifications:${NOTIFICATION_POSTGRES_PASSWORD:?Set NOTIFICATION_POSTGRES_PASSWORD}@notification-db:5432/notifications
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-itinerary}:${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}@rabbitmq:5672/
     depends_on:
       notification-db: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
@@ -19,7 +20,7 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: notifications
-      POSTGRES_PASSWORD: notifications
+      POSTGRES_PASSWORD: ${NOTIFICATION_POSTGRES_PASSWORD:?Set NOTIFICATION_POSTGRES_PASSWORD}
       POSTGRES_DB: notifications
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U notifications -d notifications"]
@@ -29,8 +30,8 @@ services:
   rabbitmq:
     image: rabbitmq:3-management-alpine
     environment:
-      RABBITMQ_DEFAULT_USER: itinerary
-      RABBITMQ_DEFAULT_PASS: itinerary
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-itinerary}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s

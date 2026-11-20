@@ -1,7 +1,7 @@
+from inspect import isawaitable
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
-from inspect import isawaitable
 from itinerary_shared.auth import Principal
 from itinerary_shared.schemas import ItineraryInput
 from pydantic import BaseModel, Field

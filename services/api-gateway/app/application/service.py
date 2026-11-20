@@ -1,7 +1,7 @@
+from app.application.passwords import hash_password, verify_password
 from app.domain.models import Credentials, InvalidCredentials, UserAlreadyExists
 from app.domain.ports import GatewayPort, IdentityPort
 from app.domain.user_ports import UserRepositoryPort
-from app.application.passwords import hash_password, verify_password
 
 
 class GatewayService:
@@ -28,7 +28,9 @@ class GatewayService:
             raise InvalidCredentials()
         return self.identity.tokens.issue(user.username)
 
-    async def register(self, username: str, name: str, email: str, phone: str, password: str) -> str:
+    async def register(
+        self, username: str, name: str, email: str, phone: str, password: str
+    ) -> str:
         from app.domain.users import User
 
         if self.users is None:

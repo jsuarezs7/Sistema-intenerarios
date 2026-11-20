@@ -6,17 +6,17 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from itinerary_shared.auth import TokenService
+from itinerary_shared.database import async_database_url
 from itinerary_shared.observability import configure
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from itinerary_shared.database import async_database_url
 
 from app.api.routes import router
 from app.application.service import GatewayService
 from app.domain.models import InvalidCredentials, UpstreamUnavailable, UserAlreadyExists
 from app.infrastructure.adapters import DemoIdentityAdapter, HttpGatewayAdapter, RedisRateLimiter
-from app.infrastructure.users import SqlUserRepository
 from app.infrastructure.settings import Settings
+from app.infrastructure.users import SqlUserRepository
 
 
 def create_app(service=None, limiter=None, settings: Settings | None = None) -> FastAPI:
@@ -115,7 +115,9 @@ def create_app(service=None, limiter=None, settings: Settings | None = None) -> 
 
     @app.exception_handler(UserAlreadyExists)
     async def conflict(request: Request, exc):
-        return JSONResponse(status_code=409, content={"detail": "Username or email is already registered"})
+        return JSONResponse(
+            status_code=409, content={"detail": "Username or email is already registered"}
+        )
 
     return app
 

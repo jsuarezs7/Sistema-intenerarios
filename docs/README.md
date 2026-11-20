@@ -175,14 +175,15 @@ CI ejecuta Ruff, formato y pytest/cobertura por servicio en Python 3.11 y 3.12; 
 
 ## Calidad y pruebas (SonarQube local)
 
-Desde la raíz, con Docker Desktop abierto y las dependencias de desarrollo instaladas:
+Desde la raíz, con Docker Desktop abierto. Python es opcional: si no está instalado (o se pasa `-Docker`), las pruebas corren dentro de un contenedor construido con `infra/tests.Dockerfile`.
 
 ```powershell
-.\scripts\quality.ps1              # pruebas + cobertura + análisis en SonarQube
-.\scripts\quality.ps1 -SkipSonar   # solo pruebas y cobertura
+.\scripts\quality.ps1                         # pruebas + cobertura + análisis en SonarQube
+.\scripts\quality.ps1 -SkipSonar              # solo pruebas y cobertura
+.\scripts\quality.ps1 -AdminPassword <clave>  # si ya cambiaste la contraseña de admin
 ```
 
-El script ejecuta pytest en los cinco servicios, deja reportes en `reports/<servicio>/` (JUnit, `coverage.xml` y `htmlcov/index.html`) y publica el análisis en http://localhost:9000/dashboard?id=sistema-itinerarios (usuario `admin` / `admin` la primera vez). Si cambias la contraseña de admin, usa `-AdminPassword <nueva>`. Para apagar SonarQube: `docker compose -f infra/docker-compose.sonar.yml down`.
+El script ejecuta pytest en los cinco servicios y en `shared`, exige una cobertura mínima del 90 % por módulo (`-MinCoverage` para cambiarla), deja reportes en `reports/<servicio>/` (JUnit, `coverage.xml` y `htmlcov/index.html`) y publica el análisis en http://localhost:9000/dashboard?id=sistema-itinerarios (usuario `admin` / `admin` la primera vez). Si cambias la contraseña de admin, usa `-AdminPassword <nueva>`. Para apagar SonarQube: `docker compose -f infra/docker-compose.sonar.yml down`.
 
 ## Trazabilidad
 

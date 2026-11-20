@@ -8,3 +8,12 @@ version = "1.0.0"
 requires-python = ">=3.11"
 dependencies = ["pydantic>=2.10,<3", "PyJWT>=2.10,<3", "fastapi>=0.115,<1", "httpx>=0.28,<1", "python-json-logger>=3,<5", "opentelemetry-sdk>=1.30,<2", "opentelemetry-exporter-otlp-proto-http>=1.30,<2", "opentelemetry-instrumentation-fastapi>=0.51b0,<1", "opentelemetry-instrumentation-httpx>=0.51b0,<1"]
 
+
+[tool.setuptools.packages.find]
+include = ["itinerary_shared*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]
+testpaths = ["tests"]
