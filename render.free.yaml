@@ -1,0 +1,46 @@
+# Blueprint para el plan gratuito de Render. En "Blueprint Path" escribir: render.free.yaml
+# render.yaml describe la arquitectura completa (servicios privados y workers), que es de pago.
+services:
+- name: sistema-itinerarios
+  type: web
+  runtime: docker
+  plan: free
+  region: oregon
+  branch: main
+  dockerContext: .
+  dockerfilePath: ./deploy/render-free/Dockerfile
+  autoDeployTrigger: commit
+  healthCheckPath: /health
+  envVars:
+  - key: PORT
+    value: '8000'
+  - key: JWT_SECRET
+    generateValue: true
+  - key: DEMO_USERNAME
+    sync: false
+  - key: DEMO_PASSWORD
+    sync: false
+  - key: RABBITMQ_URL
+    sync: false
+  - key: DATABASE_URL
+    fromDatabase:
+      name: itinerary-db
+      property: connectionString
+  - key: REDIS_URL
+    fromService:
+      name: itinerary-cache
+      type: keyvalue
+      property: connectionString
+- name: itinerary-cache
+  type: keyvalue
+  plan: free
+  region: oregon
+  ipAllowList: []
+  maxmemoryPolicy: volatile-lru
+databases:
+- name: itinerary-db
+  plan: free
+  region: oregon
+  databaseName: itineraries
+  postgresMajorVersion: '17'
+  ipAllowList: []
